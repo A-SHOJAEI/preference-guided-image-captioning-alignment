@@ -1,0 +1,169 @@
+# Logging Configuration for Preference-Guided Image Captioning Alignment
+# This file provides detailed logging configuration options
+
+version: 1
+disable_existing_loggers: false
+
+formatters:
+  detailed:
+    format: '%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+
+  simple:
+    format: '%(levelname)s - %(name)s - %(message)s'
+
+  performance:
+    format: '%(asctime)s - PERF - %(name)s - %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+
+  training:
+    format: '%(asctime)s - TRAIN - %(message)s'
+    datefmt: '%H:%M:%S'
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: simple
+    stream: ext://sys.stdout
+
+  file:
+    class: logging.FileHandler
+    level: DEBUG
+    formatter: detailed
+    filename: logs/preference_captioning.log
+    mode: a
+
+  training_file:
+    class: logging.FileHandler
+    level: INFO
+    formatter: training
+    filename: logs/training.log
+    mode: a
+
+  performance_file:
+    class: logging.FileHandler
+    level: DEBUG
+    formatter: performance
+    filename: logs/performance.log
+    mode: a
+
+  error_file:
+    class: logging.FileHandler
+    level: ERROR
+    formatter: detailed
+    filename: logs/errors.log
+    mode: a
+
+loggers:
+  # Main application logger
+  preference_guided_image_captioning_alignment:
+    level: INFO
+    handlers: [console, file, error_file]
+    propagate: no
+
+  # Training specific logging
+  preference_guided_image_captioning_alignment.training:
+    level: INFO
+    handlers: [console, training_file, error_file]
+    propagate: no
+
+  # Performance logging
+  preference_guided_image_captioning_alignment.models:
+    level: DEBUG
+    handlers: [console, file, performance_file]
+    propagate: no
+
+  # Evaluation logging
+  preference_guided_image_captioning_alignment.evaluation:
+    level: INFO
+    handlers: [console, file]
+    propagate: no
+
+  # Data loading logging
+  preference_guided_image_captioning_alignment.data:
+    level: INFO
+    handlers: [console, file]
+    propagate: no
+
+  # Third-party library logging
+  transformers:
+    level: WARNING
+    handlers: [console]
+    propagate: no
+
+  torch:
+    level: WARNING
+    handlers: [console]
+    propagate: no
+
+  PIL:
+    level: WARNING
+    handlers: [console]
+    propagate: no
+
+  accelerate:
+    level: INFO
+    handlers: [console]
+    propagate: no
+
+  wandb:
+    level: INFO
+    handlers: [console]
+    propagate: no
+
+  mlflow:
+    level: INFO
+    handlers: [console]
+    propagate: no
+
+root:
+  level: INFO
+  handlers: [console, file]
+
+# Log level mapping for environment variables
+log_levels:
+  CRITICAL: 50
+  ERROR: 40
+  WARNING: 30
+  INFO: 20
+  DEBUG: 10
+  NOTSET: 0
+
+# Performance logging configuration
+performance_logging:
+  enabled: true
+  log_memory_usage: true
+  log_timing: true
+  log_gpu_usage: true
+  detailed_model_logging: false  # Set to true for very detailed logging
+
+# Training logging configuration
+training_logging:
+  log_every_n_steps: 100
+  log_gradients: false  # Set to true for gradient debugging
+  log_learning_rates: true
+  log_model_parameters: false  # Set to true for parameter tracking
+  log_data_loading_time: true
+
+# Evaluation logging configuration
+evaluation_logging:
+  log_individual_metrics: true
+  log_prediction_samples: 10  # Number of prediction examples to log
+  log_failure_cases: true
+  save_prediction_files: true
+
+# Production vs Development settings
+development:
+  # More verbose logging for development
+  root_level: DEBUG
+  console_level: DEBUG
+  enable_performance_logging: true
+  log_model_details: true
+
+production:
+  # Less verbose logging for production
+  root_level: INFO
+  console_level: WARNING
+  enable_performance_logging: false
+  log_model_details: false
