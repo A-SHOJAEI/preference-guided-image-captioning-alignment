@@ -1,0 +1,114 @@
+# Preference-Guided Image Captioning Alignment Configuration
+
+# Data configuration
+data:
+  conceptual_captions_path: "conceptual_captions_3m"
+  ultrafeedback_path: "ultrafeedback/preferences.json"
+  image_size: 224
+  max_caption_length: 128
+  train_split: 0.8
+  val_split: 0.1
+  test_split: 0.1
+  num_workers: 4
+  pin_memory: true
+  prefetch_factor: 2
+
+# Model configuration
+model:
+  vision_model: "openai/clip-vit-base-patch32"
+  text_model: "microsoft/DialoGPT-medium"
+  projection_dim: 512
+  temperature: 0.07
+  dropout: 0.1
+  freeze_vision_backbone: false
+  freeze_text_backbone: false
+  lora_config:
+    r: 16
+    lora_alpha: 32
+    target_modules: ["q_proj", "v_proj", "k_proj", "out_proj"]
+    lora_dropout: 0.1
+
+# Training configuration
+training:
+  # Stage 1: Contrastive learning
+  stage1:
+    batch_size: 32
+    learning_rate: 5e-5
+    weight_decay: 0.01
+    num_epochs: 10
+    warmup_steps: 1000
+    gradient_accumulation_steps: 2
+    max_grad_norm: 1.0
+    contrastive_loss_weight: 1.0
+
+  # Stage 2: Preference optimization
+  stage2:
+    batch_size: 16
+    learning_rate: 1e-5
+    weight_decay: 0.01
+    num_epochs: 5
+    warmup_steps: 500
+    gradient_accumulation_steps: 4
+    max_grad_norm: 1.0
+    preference_loss_weight: 1.0
+    dpo_beta: 0.1
+
+  # General training settings
+  seed: 42
+  fp16: false
+  dataloader_num_workers: 4
+  save_strategy: "steps"
+  save_steps: 1000
+  eval_strategy: "steps"
+  eval_steps: 500
+  logging_steps: 100
+  early_stopping_patience: 3
+  load_best_model_at_end: true
+
+# Evaluation configuration
+evaluation:
+  metrics:
+    - "bleu"
+    - "rouge"
+    - "cider"
+    - "meteor"
+    - "bert_score"
+    - "clip_score"
+  generate_config:
+    max_length: 128
+    num_beams: 4
+    temperature: 0.8
+    do_sample: true
+    top_p: 0.9
+    repetition_penalty: 1.1
+    length_penalty: 1.0
+  human_eval_samples: 500
+
+# Target metrics
+targets:
+  cider_score: 1.15
+  preference_win_rate: 0.72
+  human_eval_helpfulness: 4.2
+  latency_ms_p95: 150
+
+# Logging configuration
+logging:
+  level: "INFO"
+  wandb_project: "preference-guided-captioning"
+  mlflow_experiment: "image-captioning-alignment"
+  log_model_checkpoints: true
+  log_predictions_frequency: 1000
+
+# Hardware configuration
+hardware:
+  device: "auto"  # auto-detect GPU/CPU
+  mixed_precision: "no"
+  gradient_checkpointing: true
+  compile_model: false  # PyTorch 2.0 compile
+
+# Paths
+paths:
+  output_dir: "./outputs"
+  cache_dir: "./cache"
+  log_dir: "./logs"
+  checkpoint_dir: "./checkpoints"
