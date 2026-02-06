@@ -1,0 +1,160 @@
+# Environment Configuration for Preference-Guided Image Captioning Alignment
+#
+# This file documents all supported environment variables that can be used to
+# override configuration settings. These environment variables provide a way to
+# configure the system without modifying code or configuration files.
+
+# Path Configuration
+environment_variables:
+  # Data directories
+  CAPTION_ALIGNMENT_DATA_DIR:
+    description: "Root directory for datasets"
+    default: "./data"
+    example: "/path/to/datasets"
+
+  CAPTION_ALIGNMENT_CACHE_DIR:
+    description: "Directory for caching models and intermediate results"
+    default: "./cache"
+    example: "/tmp/caption_cache"
+
+  CAPTION_ALIGNMENT_OUTPUT_DIR:
+    description: "Output directory for training results and checkpoints"
+    default: "./outputs"
+    example: "/path/to/outputs"
+
+  CAPTION_ALIGNMENT_LOG_DIR:
+    description: "Directory for log files"
+    default: "./logs"
+    example: "/var/log/caption_alignment"
+
+  # Model configuration
+  CAPTION_ALIGNMENT_VISION_MODEL:
+    description: "Vision model name or path"
+    default: "openai/clip-vit-base-patch32"
+    example: "/path/to/custom/clip/model"
+
+  CAPTION_ALIGNMENT_TEXT_MODEL:
+    description: "Text model name or path"
+    default: "microsoft/DialoGPT-medium"
+    example: "/path/to/custom/gpt/model"
+
+  # Training configuration
+  CAPTION_ALIGNMENT_DEVICE:
+    description: "Device for training and inference"
+    default: "auto"
+    example: "cuda:0"
+
+  CAPTION_ALIGNMENT_BATCH_SIZE:
+    description: "Training batch size"
+    default: "32"
+    example: "16"
+
+  CAPTION_ALIGNMENT_LEARNING_RATE:
+    description: "Learning rate for training"
+    default: "5e-5"
+    example: "1e-4"
+
+  CAPTION_ALIGNMENT_NUM_EPOCHS:
+    description: "Number of training epochs"
+    default: "10"
+    example: "20"
+
+  # Logging configuration
+  CAPTION_ALIGNMENT_LOG_LEVEL:
+    description: "Logging level"
+    default: "INFO"
+    example: "DEBUG"
+
+  WANDB_PROJECT:
+    description: "Weights & Biases project name"
+    default: "preference-guided-captioning"
+    example: "my-captioning-project"
+
+  WANDB_ENTITY:
+    description: "Weights & Biases entity/team name"
+    default: null
+    example: "my-team"
+
+  MLFLOW_TRACKING_URI:
+    description: "MLflow tracking server URI"
+    default: null
+    example: "http://localhost:5000"
+
+  MLFLOW_EXPERIMENT_NAME:
+    description: "MLflow experiment name"
+    default: "image-captioning-alignment"
+    example: "my-experiment"
+
+  # Hardware configuration
+  CAPTION_ALIGNMENT_NUM_WORKERS:
+    description: "Number of data loader workers"
+    default: "4"
+    example: "8"
+
+  CAPTION_ALIGNMENT_PIN_MEMORY:
+    description: "Whether to pin memory in data loaders"
+    default: "true"
+    example: "false"
+
+  CAPTION_ALIGNMENT_MIXED_PRECISION:
+    description: "Mixed precision training mode"
+    default: "fp16"
+    example: "bf16"
+
+  # Security and API keys
+  HF_TOKEN:
+    description: "Hugging Face authentication token for private models"
+    default: null
+    example: "hf_xxxxxxxxxxxx"
+
+  OPENAI_API_KEY:
+    description: "OpenAI API key for GPT-based evaluations"
+    default: null
+    example: "sk-xxxxxxxxxxxx"
+
+# Usage examples:
+#
+# 1. Override cache directory:
+#    export CAPTION_ALIGNMENT_CACHE_DIR="/tmp/caption_cache"
+#
+# 2. Set device for GPU training:
+#    export CAPTION_ALIGNMENT_DEVICE="cuda:0"
+#
+# 3. Override batch size for smaller GPU:
+#    export CAPTION_ALIGNMENT_BATCH_SIZE="16"
+#
+# 4. Set logging to debug level:
+#    export CAPTION_ALIGNMENT_LOG_LEVEL="DEBUG"
+#
+# 5. Configure MLflow tracking:
+#    export MLFLOW_TRACKING_URI="http://mlflow.example.com:5000"
+#    export MLFLOW_EXPERIMENT_NAME="production-experiment"
+#
+# 6. Use custom models:
+#    export CAPTION_ALIGNMENT_VISION_MODEL="/path/to/custom/clip"
+#    export CAPTION_ALIGNMENT_TEXT_MODEL="/path/to/custom/gpt"
+
+# Docker environment example:
+docker_environment:
+  - CAPTION_ALIGNMENT_CACHE_DIR=/app/cache
+  - CAPTION_ALIGNMENT_OUTPUT_DIR=/app/outputs
+  - CAPTION_ALIGNMENT_LOG_DIR=/app/logs
+  - CAPTION_ALIGNMENT_DEVICE=cuda:0
+  - CAPTION_ALIGNMENT_BATCH_SIZE=16
+  - WANDB_PROJECT=docker-captioning
+  - MLFLOW_TRACKING_URI=http://mlflow:5000
+
+# Kubernetes ConfigMap example:
+kubernetes_configmap:
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: caption-alignment-config
+  data:
+    CAPTION_ALIGNMENT_CACHE_DIR: "/data/cache"
+    CAPTION_ALIGNMENT_OUTPUT_DIR: "/data/outputs"
+    CAPTION_ALIGNMENT_LOG_DIR: "/data/logs"
+    CAPTION_ALIGNMENT_DEVICE: "cuda:0"
+    CAPTION_ALIGNMENT_BATCH_SIZE: "32"
+    CAPTION_ALIGNMENT_LOG_LEVEL: "INFO"
+    WANDB_PROJECT: "k8s-captioning"
