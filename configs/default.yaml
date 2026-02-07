@@ -16,35 +16,35 @@ data:
 # Model configuration
 model:
   vision_model: "openai/clip-vit-base-patch32"
-  text_model: "microsoft/DialoGPT-medium"
+  text_model: "gpt2-medium"
   projection_dim: 512
-  temperature: 0.07
+  temperature: 0.5
   dropout: 0.1
-  freeze_vision_backbone: false
+  freeze_vision_backbone: true
   freeze_text_backbone: false
-  lora_config:
-    r: 16
-    lora_alpha: 32
-    target_modules: ["q_proj", "v_proj", "k_proj", "out_proj"]
-    lora_dropout: 0.1
+  # lora_config:
+  #   r: 16
+  #   lora_alpha: 32
+  #   target_modules: ["c_attn", "c_proj"]
+  #   lora_dropout: 0.1
 
 # Training configuration
 training:
   # Stage 1: Contrastive learning
   stage1:
-    batch_size: 32
-    learning_rate: 5e-5
+    batch_size: 8
+    learning_rate: 5.0e-5
     weight_decay: 0.01
     num_epochs: 10
-    warmup_steps: 1000
-    gradient_accumulation_steps: 2
+    warmup_steps: 500
+    gradient_accumulation_steps: 4
     max_grad_norm: 1.0
     contrastive_loss_weight: 1.0
 
   # Stage 2: Preference optimization
   stage2:
-    batch_size: 16
-    learning_rate: 1e-5
+    batch_size: 8
+    learning_rate: 1.0e-5
     weight_decay: 0.01
     num_epochs: 5
     warmup_steps: 500

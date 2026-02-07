@@ -303,9 +303,17 @@ class TextEncoder(nn.Module):
             self.text_model = AutoModel.from_pretrained(model_name)
             self.tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-            # Add special tokens if needed
+            # Add same special tokens as TextProcessor to keep vocab in sync
+            special_tokens = {}
             if self.tokenizer.pad_token is None:
-                self.tokenizer.pad_token = self.tokenizer.eos_token
+                special_tokens["pad_token"] = "[PAD]"
+            if self.tokenizer.bos_token is None:
+                special_tokens["bos_token"] = "[BOS]"
+            if self.tokenizer.sep_token is None:
+                special_tokens["sep_token"] = "[SEP]"
+            if special_tokens:
+                self.tokenizer.add_special_tokens(special_tokens)
+                self.text_model.resize_token_embeddings(len(self.tokenizer))
 
         except Exception as e:
             self.logger.error(f"Failed to load text model {model_name}: {e}")
@@ -443,13 +451,13 @@ class TextEncoder(nn.Module):
             self.logger.error(f"Error in text model forward pass: {e}")
             raise RuntimeError(f"Text encoding failed: {e}") from e
 
-        # Project to shared embedding space
-        embeddings = self.projection(pooled_output)
+        # Project to shared embedding space (cast to float32 for LoRA compatibility)
+        embeddings = self.projection(pooled_output.float())
 
         result = {
-            "features": features,
+            "features": features.float(),
             "embeddings": embeddings,
-            "pooled_output": pooled_output,
+            "pooled_output": pooled_output.float(),
         }
 
         if return_hidden_states:
@@ -566,13 +574,13 @@ class CaptionDecoder(nn.Module):
         """
         batch_size = vision_features.size(0)
 
-        # Project vision features
-        projected_vision = self.vision_projection(vision_features)  # (B, hidden_size)
+        # Project vision features (ensure float32 for LoRA compatibility)
+        projected_vision = self.vision_projection(vision_features.float())  # (B, hidden_size)
         projected_vision = projected_vision.unsqueeze(1)  # (B, 1, hidden_size)
 
         if input_ids is not None:
-            # Get text embeddings
-            text_embeddings = self.lm_model.transformer.wte(input_ids)  # (B, seq_len, hidden_size)
+            # Get text embeddings (cast to float32 for cross-attention compatibility)
+            text_embeddings = self.lm_model.transformer.wte(input_ids).float()  # (B, seq_len, hidden_size)
 
             # Apply cross-attention
             attended_text, _ = self.cross_attention(
@@ -807,7 +815,8 @@ class PreferenceGuidedCaptioningModel(nn.Module):
             text_outputs = self.text_encoder(caption_ids, caption_mask)
             text_embeddings = text_outputs["embeddings"]  # (B, projection_dim)
 
-            # Normalize embeddings
+            # L2 normalize embeddings for contrastive learning
+            # F.normalize uses clamp(norm, min=eps) internally which is gradient-safe
             image_embeddings_norm = F.normalize(image_embeddings, p=2, dim=-1)
             text_embeddings_norm = F.normalize(text_embeddings, p=2, dim=-1)
 

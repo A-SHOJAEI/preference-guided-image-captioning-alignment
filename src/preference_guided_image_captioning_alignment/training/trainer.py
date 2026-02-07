@@ -52,6 +52,7 @@ Note:
 """
 
 import logging
+import math
 import os
 import time
 from pathlib import Path
@@ -183,9 +184,9 @@ class PreferenceGuidedTrainer:
         # Initialize accelerator
         if accelerator is None:
             self.accelerator = Accelerator(
-                gradient_accumulation_steps=config.get("training.gradient_accumulation_steps", 1),
-                mixed_precision=config.get("hardware.mixed_precision", "fp16"),
-                log_with="wandb" if config.get("logging.wandb_project") else None,
+                gradient_accumulation_steps=config.get("training.stage1.gradient_accumulation_steps", 4),
+                mixed_precision=config.get("hardware.mixed_precision", "no"),
+                log_with=None,
             )
         else:
             self.accelerator = accelerator
@@ -220,18 +221,25 @@ class PreferenceGuidedTrainer:
     def _setup_logging(self) -> None:
         """Setup experiment logging with MLflow and Wandb."""
         # MLflow setup
-        if self.config.get("logging.mlflow_experiment"):
-            mlflow.set_experiment(self.config.get("logging.mlflow_experiment"))
-            mlflow.start_run()
-            mlflow.log_params(self.config.config)
+        try:
+            if self.config.get("logging.mlflow_experiment"):
+                mlflow.set_experiment(self.config.get("logging.mlflow_experiment"))
+                mlflow.start_run()
+                mlflow.log_params(self.config.config)
+        except Exception as e:
+            self.logger.warning(f"MLflow setup failed (continuing without): {e}")
 
         # Wandb setup
-        if self.config.get("logging.wandb_project") and self.accelerator.is_main_process:
-            wandb.init(
-                project=self.config.get("logging.wandb_project"),
-                config=self.config.config,
-                name=f"preference-captioning-{int(time.time())}",
-            )
+        try:
+            if self.config.get("logging.wandb_project") and self.accelerator.is_main_process:
+                wandb.init(
+                    project=self.config.get("logging.wandb_project"),
+                    config=self.config.config,
+                    name=f"preference-captioning-{int(time.time())}",
+                    mode="offline",
+                )
+        except Exception as e:
+            self.logger.warning(f"Wandb setup failed (continuing without): {e}")
 
     def _setup_output_directories(self) -> None:
         """Setup output directories for checkpoints and logs."""
@@ -341,12 +349,14 @@ class PreferenceGuidedTrainer:
                 "learning_rate": optimizer.param_groups[0]["lr"],
             })
 
+            # Early stopping check (must run before _save_checkpoint which updates best_val_loss)
+            should_stop = self._check_early_stopping(val_loss, stage1_config)
+
             # Save checkpoint
             if self.accelerator.is_main_process:
                 self._save_checkpoint(epoch, optimizer, scheduler, val_loss, stage=1)
 
-            # Early stopping check
-            if self._check_early_stopping(val_loss, stage1_config):
+            if should_stop:
                 self.logger.info(f"Early stopping triggered at epoch {epoch}")
                 break
 
@@ -405,12 +415,14 @@ class PreferenceGuidedTrainer:
                 "learning_rate": optimizer.param_groups[0]["lr"],
             })
 
+            # Early stopping check (must run before _save_checkpoint which updates best_val_loss)
+            should_stop = self._check_early_stopping(val_loss, stage2_config)
+
             # Save checkpoint
             if self.accelerator.is_main_process:
                 self._save_checkpoint(epoch, optimizer, scheduler, val_loss, stage=2)
 
-            # Early stopping check
-            if self._check_early_stopping(val_loss, stage2_config):
+            if should_stop:
                 self.logger.info(f"Early stopping triggered at epoch {epoch}")
                 break
 
@@ -445,6 +457,7 @@ class PreferenceGuidedTrainer:
             disable=not self.accelerator.is_main_process,
         )
 
+        nan_count = 0
         for step, batch in enumerate(progress_bar):
             with self.accelerator.accumulate(self.model):
                 # Forward pass
@@ -461,8 +474,35 @@ class PreferenceGuidedTrainer:
                     outputs["text_embeddings"],
                 )
 
+                # NaN detection - skip batch if loss is NaN
+                loss_val = loss.item()
+                if not math.isfinite(loss_val):
+                    nan_count += 1
+                    if nan_count <= 5:
+                        self.logger.warning(
+                            f"NaN/Inf loss at step {step}. Skipping batch."
+                        )
+                    optimizer.zero_grad()
+                    continue
+
                 # Backward pass
                 self.accelerator.backward(loss)
+
+                # Check for NaN gradients before optimizer step
+                has_nan_grad = False
+                for name, param in self.model.named_parameters():
+                    if param.grad is not None and not torch.isfinite(param.grad).all():
+                        has_nan_grad = True
+                        break
+
+                if has_nan_grad:
+                    nan_count += 1
+                    if nan_count <= 5:
+                        self.logger.warning(
+                            f"NaN gradients at step {step}. Skipping optimizer step."
+                        )
+                    optimizer.zero_grad()
+                    continue
 
                 # Gradient clipping
                 if config.get("max_grad_norm"):
@@ -477,23 +517,26 @@ class PreferenceGuidedTrainer:
                 optimizer.zero_grad()
 
                 # Update metrics
-                total_loss += loss.item()
+                total_loss += loss_val
                 num_batches += 1
                 self.global_step += 1
 
                 # Update progress bar
                 progress_bar.set_postfix({
-                    "loss": f"{loss.item():.4f}",
+                    "loss": f"{loss_val:.4f}",
                     "lr": f"{optimizer.param_groups[0]['lr']:.2e}",
                 })
 
                 # Log step metrics
                 if self.global_step % config.get("logging_steps", 100) == 0:
                     self._log_metrics({
-                        "step_loss": loss.item(),
+                        "step_loss": loss_val,
                         "learning_rate": optimizer.param_groups[0]["lr"],
                         "global_step": self.global_step,
                     })
+
+        if nan_count > 0:
+            self.logger.warning(f"Epoch had {nan_count} NaN batches out of {step + 1} total")
 
         return total_loss / num_batches if num_batches > 0 else 0.0
 
@@ -525,6 +568,7 @@ class PreferenceGuidedTrainer:
             disable=not self.accelerator.is_main_process,
         )
 
+        nan_count = 0
         for step, batch in enumerate(progress_bar):
             with self.accelerator.accumulate(self.model):
                 # Forward pass for preferred captions
@@ -555,6 +599,16 @@ class PreferenceGuidedTrainer:
                     batch["rejected_mask"],
                 )
 
+                # NaN detection - skip batch if loss is NaN
+                loss_val = loss.item()
+                if not math.isfinite(loss_val):
+                    nan_count += 1
+                    self.logger.warning(
+                        f"NaN/Inf loss at step {step} (total NaN batches: {nan_count}). Skipping."
+                    )
+                    optimizer.zero_grad()
+                    continue
+
                 # Backward pass
                 self.accelerator.backward(loss)
 
@@ -571,23 +625,26 @@ class PreferenceGuidedTrainer:
                 optimizer.zero_grad()
 
                 # Update metrics
-                total_loss += loss.item()
+                total_loss += loss_val
                 num_batches += 1
                 self.global_step += 1
 
                 # Update progress bar
                 progress_bar.set_postfix({
-                    "loss": f"{loss.item():.4f}",
+                    "loss": f"{loss_val:.4f}",
                     "lr": f"{optimizer.param_groups[0]['lr']:.2e}",
                 })
 
                 # Log step metrics
                 if self.global_step % config.get("logging_steps", 100) == 0:
                     self._log_metrics({
-                        "step_loss": loss.item(),
+                        "step_loss": loss_val,
                         "learning_rate": optimizer.param_groups[0]["lr"],
                         "global_step": self.global_step,
                     })
+
+        if nan_count > 0:
+            self.logger.warning(f"Epoch had {nan_count} NaN batches out of {step + 1} total")
 
         return total_loss / num_batches if num_batches > 0 else 0.0
 
