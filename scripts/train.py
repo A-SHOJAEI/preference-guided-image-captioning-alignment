@@ -313,11 +313,12 @@ def main():
         set_random_seeds(seed)
         logger.info(f"Set random seed to {seed}")
 
-        # Initialize accelerator
+        # Initialize accelerator with stage1 gradient accumulation
+        grad_accum_steps = config.get("training.stage1.gradient_accumulation_steps", 4)
         accelerator = Accelerator(
-            gradient_accumulation_steps=config.get("training.gradient_accumulation_steps", 1),
-            mixed_precision=config.get("hardware.mixed_precision", "fp16"),
-            log_with="wandb" if config.get("logging.wandb_project") else None,
+            gradient_accumulation_steps=grad_accum_steps,
+            mixed_precision=config.get("hardware.mixed_precision", "no"),
+            log_with=None,  # Handle logging manually to avoid login issues
         )
 
         logger.info(f"Using device: {accelerator.device}")
