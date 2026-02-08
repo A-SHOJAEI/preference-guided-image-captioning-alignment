@@ -97,3 +97,6 @@ dmypy.json
 # Temporary files
 *.tmp
 *.temp
+# Log files and databases
+*.log
+mlflow.db
