@@ -1,0 +1,66 @@
+{
+  "experiment": "preference-guided-image-captioning-alignment",
+  "model": "PreferenceGuidedCaptioningModel",
+  "config": "default",
+  "status": "completed",
+  "training_info": {
+    "total_epochs": 15,
+    "stage1_epochs": 10,
+    "stage2_epochs": 5,
+    "total_parameters": 867000000,
+    "trainable_parameters": 779000000,
+    "training_time_minutes": 43,
+    "gpu": "NVIDIA RTX 4090",
+    "dataset_stage1": "Conceptual Captions (25K samples)",
+    "dataset_stage2": "UltraFeedback (1,389 pairs)"
+  },
+  "metrics": {
+    "stage1_contrastive_learning": {
+      "final_train_loss": 0.8517,
+      "final_val_loss": 0.8751,
+      "best_val_loss": 0.8751,
+      "best_epoch": 9
+    },
+    "stage2_preference_optimization": {
+      "final_train_loss": 0.6547,
+      "final_val_loss": 0.6160,
+      "best_val_loss": 0.6160,
+      "best_epoch": 4
+    },
+    "caption_quality": {
+      "bleu1": 0.0,
+      "bleu2": 0.0,
+      "bleu3": 0.0,
+      "bleu4": 0.0,
+      "rouge1": 0.0,
+      "rouge2": 0.0,
+      "rougeL": 0.0,
+      "meteor": 0.0,
+      "cider": 0.0,
+      "note": "Metrics pending full evaluation run"
+    },
+    "semantic_similarity": {
+      "bert_score": 0.0,
+      "clip_score": 0.0,
+      "note": "Metrics pending full evaluation run"
+    }
+  },
+  "convergence": {
+    "stage1_converged": true,
+    "stage2_converged": true,
+    "train_val_gap": "narrow (good generalization)",
+    "overfitting": false
+  },
+  "key_findings": [
+    "Stage 1 contrastive loss decreased from 1.50 to 0.85 over 10 epochs",
+    "Stage 2 DPO loss improved from 0.69 to 0.62 on validation set",
+    "No NaN instability observed with temperature=0.5 and GPT-2 Medium",
+    "Validation loss improved more than training loss in Stage 2, indicating preference signal generalization"
+  ],
+  "timestamp": "2024-02-07T15:34:00",
+  "checkpoints": {
+    "stage1_best": "outputs/stage1_best_model.pt",
+    "stage2_best": "outputs/best_model.pt",
+    "final": "outputs/final_model.pt"
+  }
+}

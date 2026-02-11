@@ -100,3 +100,22 @@ dmypy.json
 # Log files and databases
 *.log
 mlflow.db
+
+
+# Auto-added by publisher
+# Training artifacts (auto-added by publisher)
+*.pkl
+*.h5
+*.onnx
+*.bin
+*.safetensors
+wandb/
+mlruns/
+data/*.arrow
+data/*.parquet
+data/*.h5
+data/*.hdf5
+data/raw/
+data/processed/
+outputs/
+.venv/
