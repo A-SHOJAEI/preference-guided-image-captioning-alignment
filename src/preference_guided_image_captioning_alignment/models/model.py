@@ -52,6 +52,14 @@ from transformers import (
     GPT2Tokenizer,
 )
 
+# Import custom reusable components (alternative implementations available)
+from .components import (
+    DPOPreferenceLoss,
+    NaNSafeGradientNorm,
+    TemperatureScaledSimilarity,
+    compute_sequence_logprobs,
+)
+
 
 class VisionEncoder(nn.Module):
     """Vision encoder based on CLIP vision model for image feature extraction.

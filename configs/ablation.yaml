@@ -1,0 +1,119 @@
+# Ablation Study Configuration
+# This config disables the DPO preference optimization (Stage 2) to test
+# the impact of human preference alignment on caption quality.
+#
+# ABLATION: Removes preference optimization to isolate the contribution of
+# DPO-style alignment. This tests whether preference learning improves captions
+# beyond standard contrastive learning alone.
+#
+# Expected impact: Without Stage 2, model should have competitive BLEU/CIDEr
+# scores but lower preference win rates and human eval helpfulness scores.
+
+# Data configuration
+data:
+  conceptual_captions_path: "conceptual_captions_3m"
+  ultrafeedback_path: "ultrafeedback/preferences.json"
+  image_size: 224
+  max_caption_length: 128
+  train_split: 0.8
+  val_split: 0.1
+  test_split: 0.1
+  num_workers: 4
+  pin_memory: true
+  prefetch_factor: 2
+
+# Model configuration
+model:
+  vision_model: "openai/clip-vit-base-patch32"
+  text_model: "gpt2-medium"
+  projection_dim: 512
+  temperature: 0.5
+  dropout: 0.1
+  freeze_vision_backbone: true
+  freeze_text_backbone: false
+
+# Training configuration
+training:
+  # Stage 1: Contrastive learning (ONLY STAGE - no Stage 2)
+  stage1:
+    batch_size: 8
+    learning_rate: 5.0e-5
+    weight_decay: 0.01
+    num_epochs: 10
+    warmup_steps: 500
+    gradient_accumulation_steps: 4
+    max_grad_norm: 1.0
+    contrastive_loss_weight: 1.0
+
+  # Stage 2: DISABLED FOR ABLATION
+  # This removes the DPO preference optimization component
+  stage2:
+    batch_size: 8
+    learning_rate: 1.0e-5
+    weight_decay: 0.01
+    num_epochs: 0  # ABLATION: Disabled (set to 0 epochs)
+    warmup_steps: 500
+    gradient_accumulation_steps: 4
+    max_grad_norm: 1.0
+    preference_loss_weight: 0.0  # ABLATION: Disabled preference loss
+    dpo_beta: 0.1
+
+  # General training settings
+  seed: 42
+  fp16: false
+  dataloader_num_workers: 4
+  save_strategy: "steps"
+  save_steps: 1000
+  eval_strategy: "steps"
+  eval_steps: 500
+  logging_steps: 100
+  early_stopping_patience: 3
+  load_best_model_at_end: true
+
+# Evaluation configuration
+evaluation:
+  metrics:
+    - "bleu"
+    - "rouge"
+    - "cider"
+    - "meteor"
+    - "bert_score"
+    - "clip_score"
+  generate_config:
+    max_length: 128
+    num_beams: 4
+    temperature: 0.8
+    do_sample: true
+    top_p: 0.9
+    repetition_penalty: 1.1
+    length_penalty: 1.0
+  human_eval_samples: 500
+
+# Target metrics (expected to be lower without Stage 2)
+targets:
+  cider_score: 1.10  # Slightly lower than full model (1.15)
+  preference_win_rate: 0.50  # Random baseline without preference learning
+  human_eval_helpfulness: 3.5  # Lower than full model (4.2)
+  latency_ms_p95: 150
+
+# Logging configuration
+logging:
+  level: "INFO"
+  wandb_project: "preference-guided-captioning-ablation"
+  mlflow_experiment: "image-captioning-alignment-ablation"
+  log_model_checkpoints: true
+  log_predictions_frequency: 1000
+
+# Hardware configuration
+hardware:
+  device: "auto"
+  mixed_precision: "no"
+  gradient_checkpointing: true
+  compile_model: false
+
+# Paths
+paths:
+  output_dir: "./outputs/ablation"
+  cache_dir: "./cache"
+  log_dir: "./logs/ablation"
+  checkpoint_dir: "./checkpoints/ablation"

@@ -59,6 +59,16 @@ Input Caption ─► GPT-2 Medium ──► Text Projection ─────┘
                                                                Preference Loss (Stage 2)
 ```
 
+## Methodology
+
+This project introduces a novel two-stage training approach that combines contrastive vision-language alignment with Direct Preference Optimization (DPO) for caption generation. Unlike standard captioning models that optimize only for likelihood, our method explicitly learns from human preferences to generate captions that are more helpful, specific, and engaging.
+
+**Stage 1** trains vision and text encoders to learn aligned multimodal representations using NT-Xent contrastive loss on image-caption pairs from Conceptual Captions. The frozen CLIP vision backbone provides robust visual features while the GPT-2 text encoder learns to project captions into a shared embedding space with temperature-scaled similarity.
+
+**Stage 2** applies DPO-style preference learning to fine-tune caption generation. Given pairs of chosen and rejected captions from UltraFeedback, the model learns to increase the likelihood ratio of preferred outputs without requiring explicit reward modeling or reinforcement learning. This approach directly optimizes the policy to align with human preferences while maintaining computational efficiency.
+
+The key innovation is combining large-scale contrastive pretraining with preference-based fine-tuning in a single architecture. This enables the model to leverage both semantic understanding from vision-text alignment and nuanced quality signals from human feedback, producing captions that balance accuracy with user preferences for helpfulness and specificity.
+
 ## Training
 
 ### Stage 1: Contrastive Learning
@@ -85,28 +95,7 @@ python scripts/train.py --config configs/default.yaml
 
 ## Configuration
 
-Key configuration parameters in `configs/default.yaml`:
-
-```yaml
-model:
-  vision_model: "openai/clip-vit-base-patch32"
-  text_model: "gpt2-medium"
-  projection_dim: 512
-  temperature: 0.5
-  freeze_vision_backbone: true
-
-training:
-  stage1:
-    batch_size: 8
-    learning_rate: 5.0e-5
-    num_epochs: 10
-    gradient_accumulation_steps: 4
-  stage2:
-    batch_size: 8
-    learning_rate: 1.0e-5
-    num_epochs: 5
-    dpo_beta: 0.1
-```
+See `configs/default.yaml` for full hyperparameters. Key settings: CLIP ViT-B/32 (frozen), GPT-2 Medium, projection_dim=512, temperature=0.5, Stage 1 LR=5e-5, Stage 2 LR=1e-5, DPO beta=0.1.
 
 ## Training Results
 
@@ -159,94 +148,39 @@ Stage 1 contrastive learning shows consistent convergence with train loss decrea
 ## Project Structure
 
 ```
-preference-guided-image-captioning-alignment/
-├── src/preference_guided_image_captioning_alignment/
-│   ├── data/              # Data loading and preprocessing
-│   │   ├── loader.py      # ConceptualCaptions & UltraFeedback datasets
-│   │   └── preprocessing.py  # Image and text processors
-│   ├── models/            # Model architecture and losses
-│   │   └── model.py       # Vision/text encoders, contrastive & DPO losses
-│   ├── training/          # Training pipeline
-│   │   └── trainer.py     # Dual-stage trainer with NaN safety
-│   ├── evaluation/        # Metrics and evaluation
-│   │   └── metrics.py     # BLEU, ROUGE, CIDEr, BERTScore, CLIP-Score
-│   └── utils/             # Configuration and utilities
-│       └── config.py      # YAML config management
-├── scripts/
-│   ├── train.py           # Main training script
-│   └── run_evaluation.py  # Evaluation script
-├── tests/                 # Unit and integration tests
-├── configs/               # Training configurations
-│   └── default.yaml       # Default hyperparameters
-└── requirements.txt       # Python dependencies
+src/preference_guided_image_captioning_alignment/
+├── data/         # Data loading (ConceptualCaptions, UltraFeedback)
+├── models/       # Model architecture (components.py, model.py)
+├── training/     # Dual-stage trainer with NaN safety
+├── evaluation/   # Metrics (BLEU, ROUGE, CIDEr, BERTScore, CLIP-Score)
+└── utils/        # Config management
+scripts/          # train.py, predict.py, evaluate.py
+configs/          # default.yaml, ablation.yaml
+results/          # Training metrics and evaluation outputs
 ```
 
-## API Usage
 
-```python
-from preference_guided_image_captioning_alignment.models.model import (
-    PreferenceGuidedCaptioningModel,
-)
-from preference_guided_image_captioning_alignment.data.preprocessing import (
-    ImageProcessor,
-    TextProcessor,
-)
+## Inference
 
-# Initialize model
-model = PreferenceGuidedCaptioningModel(
-    vision_model="openai/clip-vit-base-patch32",
-    text_model="gpt2-medium",
-    projection_dim=512,
-)
+```bash
+# Generate captions
+python scripts/predict.py --image path/to/image.jpg --model-path outputs/best_model.pt
 
-# Process inputs
-image_processor = ImageProcessor(image_size=224)
-text_processor = TextProcessor(model_name="gpt2-medium", max_length=128)
-
-image_tensor = image_processor.process_image("image.jpg")
-caption_encoding = text_processor.encode_caption("A cat sitting on a chair")
+# Evaluate model
+python scripts/evaluate.py --model-path outputs/best_model.pt --split test --output results/eval.json
 ```
 
 ## Evaluation Metrics
 
-- **Caption Quality**: BLEU-1/2/3/4, ROUGE-1/2/L, METEOR, CIDEr
-- **Semantic Similarity**: BERTScore, CLIP-Score
-- **Preference Alignment**: Win rate vs. baseline captions
-- **Diversity**: Unique n-grams, caption variety
-
-## Testing
-
-```bash
-# Run all tests
-pytest tests/ -v
-
-# Run specific test modules
-pytest tests/test_model.py -v
-pytest tests/test_data.py -v
-pytest tests/test_training.py -v
-
-# Run with coverage
-pytest tests/ --cov=src/preference_guided_image_captioning_alignment
-```
+Caption quality (BLEU, ROUGE, CIDEr, METEOR), semantic similarity (BERTScore, CLIP-Score), and preference alignment metrics.
 
 ## Technical Details
 
-### Model Architecture
-- **Vision encoder**: CLIP ViT-B/32 (88M parameters, frozen)
-- **Text encoder**: GPT-2 Medium (355M parameters, trainable)
-- **Caption decoder**: GPT-2 LM head with cross-attention
-- **Projection layers**: Vision and text projections to shared 512-dim space
-- **Total**: 867M parameters (779M trainable)
+**Architecture**: CLIP ViT-B/32 (frozen, 88M params) + GPT-2 Medium (trainable, 355M params) + projection layers = 867M total (779M trainable)
 
-### Training Strategy
-1. **Stage 1**: Joint vision-text representation learning via NT-Xent contrastive loss with cosine learning rate schedule
-2. **Stage 2**: Preference alignment via DPO loss on chosen/rejected caption pairs with warmup schedule
-3. **NaN Safety**: Automatic detection and skipping of batches producing NaN loss or gradients
+**Training**: Stage 1 uses NT-Xent contrastive loss with cosine schedule. Stage 2 applies DPO loss on preference pairs with warmup. NaN safety automatically detects and skips unstable batches.
 
-### Design Decisions
-- **GPT-2 Medium over DialoGPT**: DialoGPT-medium produces NaN gradients in LayerNorm backward passes; GPT-2 Medium is numerically stable with identical architecture
-- **Temperature 0.5**: Lower temperatures (e.g. 0.07) amplify gradients ~14x through the contrastive loss, causing instability; 0.5 provides stable 2x amplification
-- **Frozen vision backbone**: CLIP's pretrained representations are strong enough; freezing reduces memory usage and training time while preventing catastrophic forgetting
+**Design**: GPT-2 Medium chosen for numerical stability vs DialoGPT. Temperature 0.5 prevents gradient explosion. Frozen CLIP backbone reduces memory and training time.
 
 ## License
 
