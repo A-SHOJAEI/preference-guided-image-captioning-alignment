@@ -68,7 +68,10 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from transformers import get_cosine_schedule_with_warmup, get_linear_schedule_with_warmup
 
-import wandb
+try:
+    import wandb
+except ImportError:
+    wandb = None
 
 from ..models.model import (
     ContrastiveLoss,

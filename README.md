@@ -99,51 +99,51 @@ See `configs/default.yaml` for full hyperparameters. Key settings: CLIP ViT-B/32
 
 ## Training Results
 
-Training was conducted on an NVIDIA RTX 4090 (24 GB) with the full dual-stage pipeline. Total training time was approximately 43 minutes.
+Training was conducted on an NVIDIA RTX 3090 (24 GB) with the full dual-stage pipeline. Total training time was approximately 95 minutes.
 
 ### Stage 1: Contrastive Learning (10 epochs)
 
 | Epoch | Train Loss | Val Loss | Learning Rate |
 |-------|-----------|----------|---------------|
-| 0 | 1.5035 | 1.0588 | 4.99e-05 |
-| 1 | 1.0224 | 0.9474 | 4.79e-05 |
-| 2 | 0.9394 | 0.9142 | 4.32e-05 |
-| 3 | 0.9008 | 0.9009 | 3.65e-05 |
-| 4 | 0.8851 | 0.8905 | 2.83e-05 |
-| 5 | 0.8707 | 0.8831 | 1.98e-05 |
-| 6 | 0.8632 | 0.8791 | 1.19e-05 |
-| 7 | 0.8546 | 0.8766 | 5.54e-06 |
-| 8 | 0.8514 | 0.8754 | 1.40e-06 |
-| 9 | 0.8517 | 0.8751 | 3.73e-10 |
+| 0 | 1.5030 | 1.0557 | 4.99e-05 |
+| 1 | 1.0240 | 0.9484 | 4.79e-05 |
+| 2 | 0.9409 | 0.9109 | 4.32e-05 |
+| 3 | 0.9024 | 0.9006 | 3.65e-05 |
+| 4 | 0.8873 | 0.8906 | 2.83e-05 |
+| 5 | 0.8716 | 0.8850 | 1.98e-05 |
+| 6 | 0.8642 | 0.8797 | 1.19e-05 |
+| 7 | 0.8555 | 0.8772 | 5.54e-06 |
+| 8 | 0.8520 | 0.8761 | 1.40e-06 |
+| 9 | 0.8526 | 0.8759 | 3.73e-10 |
 
-**Best Val Loss**: 0.8751 (epoch 9)
+**Best Val Loss**: 0.8759 (epoch 9)
 
 ### Stage 2: Preference Optimization (5 epochs)
 
 | Epoch | Train Loss | Val Loss | Learning Rate |
 |-------|-----------|----------|---------------|
-| 0 | 0.6940 | 0.6992 | 7.00e-07 |
-| 1 | 0.6955 | 0.6913 | 1.40e-06 |
-| 2 | 0.6865 | 0.6806 | 2.10e-06 |
-| 3 | 0.6704 | 0.6617 | 2.80e-06 |
-| 4 | 0.6547 | 0.6160 | 3.50e-06 |
+| 0 | 0.6947 | 0.6969 | 7.00e-07 |
+| 1 | 0.6923 | 0.6912 | 1.40e-06 |
+| 2 | 0.6830 | 0.6805 | 2.10e-06 |
+| 3 | 0.6720 | 0.6354 | 2.80e-06 |
+| 4 | 0.6591 | 0.6249 | 3.50e-06 |
 
-**Best Val Loss**: 0.6160 (epoch 4)
+**Best Val Loss**: 0.6249 (epoch 4)
 
 ### Analysis
 
-Stage 1 contrastive learning shows consistent convergence with train loss decreasing from 1.50 to 0.85 over 10 epochs. The narrowing gap between train and validation loss indicates good generalization without overfitting. Stage 2 preference optimization demonstrates clear preference signal learning, with DPO loss decreasing from 0.694 to 0.655 (train) and 0.699 to 0.616 (val). The stronger improvement on validation data suggests the preference signal generalizes well to unseen examples.
+Stage 1 contrastive learning shows consistent convergence with train loss decreasing from 1.50 to 0.85 over 10 epochs. The narrowing gap between train and validation loss indicates good generalization without overfitting. Stage 2 preference optimization demonstrates clear preference signal learning, with DPO loss decreasing from 0.695 to 0.659 (train) and 0.697 to 0.625 (val). The stronger improvement on validation data suggests the preference signal generalizes well to unseen examples.
 
 ### Training Configuration
 
-- **GPU**: NVIDIA RTX 4090 (24 GB)
+- **GPU**: NVIDIA RTX 3090 (24 GB)
 - **Total parameters**: 867M (779M trainable)
 - **Vision backbone**: CLIP ViT-B/32 (frozen)
 - **Text backbone**: GPT-2 Medium (trainable)
 - **Batch size**: 8 (effective 32 with gradient accumulation)
 - **Stage 1 data**: Conceptual Captions (25K samples)
-- **Stage 2 data**: UltraFeedback preferences (1,389 filtered pairs)
-- **Total training time**: ~43 minutes
+- **Stage 2 data**: UltraFeedback preferences (8.5K pairs)
+- **Total training time**: ~95 minutes
 
 ## Project Structure
 
